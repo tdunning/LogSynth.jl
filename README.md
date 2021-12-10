@@ -13,6 +13,7 @@ and then scanning the next level down from there. This is fast because
 we skip over lots of lower elements as we scan the higher ones, hence
 the name skip list. This is shown below
 
+<img src="https://user-images.githubusercontent.com/250490/145648549-f2415538-aafe-41f4-be03-689625daf9ea.png" width="400px" style="max-height: 200px; max-width: 100px;"/>
 
 Normally, skip lists are constructed using separately allocated
 entries with variable sized arrays of bi-directional links. That makes
@@ -37,7 +38,12 @@ entry at this level. This allows us to append new entries by actually
 appending new elements up to the level of the new entry and simply
 incrementing the weights of the last entries for all higher
 levels. Incrementing the weight of an existing value simply requires
-incrementing weights of a single entry for each level.
+incrementing weights of a single entry for each level. This is shown 
+in the following figure.
+
+
+
+<img src="https://user-images.githubusercontent.com/250490/145650332-47363e1e-4405-4882-8b93-e6c8c9c88c88.png" width="150px" style="max-height: 200px; max-width: 100px;"/>
 
 We also keep the weights in the skip list un-normalized. To search
 with a random value ``u`` in ``[0,1]``, we multiply ``u`` by the total
