@@ -11,7 +11,8 @@ higher heights. Searching in a skip list consists of scanning through
 the higher elements to get near, but just before the desired element
 and then scanning the next level down from there. This is fast because
 we skip over lots of lower elements as we scan the higher ones, hence
-the name skip list.
+the name skip list. This is shown below
+
 
 Normally, skip lists are constructed using separately allocated
 entries with variable sized arrays of bi-directional links. That makes
