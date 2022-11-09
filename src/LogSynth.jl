@@ -1,6 +1,6 @@
 module LogSynth
 
-using Counters, Markdown, Random
+using Counters, Random
 
 export SkipListDistribution, AliasTableDistribution
 
@@ -11,17 +11,35 @@ underlying probability for any element to be adjusted in ``O(log(n))``
 time and which supports appending new values to the distribution at 
 any time (also in ``O(log(n))`` time).
 
-This is done by keeping a unidirectional skip-list that contains the 
-cumulative distribution. This skip-list can be searched with a random
+This is done by keeping a skip-list that contains the cumulative sum 
+of a sequence of values ``p_i``. This skip-list can be searched with a
 value ``u \in [0, \sum_i p_i)`` to find the largest index ``m`` such 
-that ``\sum_{i=1}^m p_i < u``.
+that ``\sum_{i=1}^m p_i < u``. This is a little bit different from
+an ordinary skip list in that each level of the skip list only keeps
+the difference to the next value at the same level. By keeping the 
+difference instead of the value, we can increase a weight ``p[i]`` 
+by increasing a limited number of differences. 
 
-Typically, these probabilities are counts, but that isn't a requirement.
+Typically, the weights ``p[i]`` are counts, but that isn't a requirement.
 
-A common use of this is to implement a Pitman-Yor process where each sample
-has a probability of producing a previously unseen element and each time
-a value is sampled, the probability of producing that sample in the future
-is increased.  
+Traditionally, a skip list associates a variable sized vector of skip distances
+with each value in the skip list (values are stored in ascending order). The 
+length of the skip vector is chosen randomly so short skip vectors are much 
+more common. The skip list has a single skip vector that has offsets to the 
+first entry at each level. To find a value, we start at the highest level 
+in the skip list that is not past the desired value and move down one level
+at a time.
+
+The skip list here is done a bit differently. Instead of keeping a vector of
+offsets to the next element at different levels (a vertical arrangement), we
+keep a vector for each level which contains the difference in value to the next
+value (a horizontal arrangement). Advantages of this alternative is that it is
+very easy to append to some of the lists and we avoid the use of any pointers.
+
+A common use of this is to store an empirical cumulative distribution. In 
+particular, this `SkipListDistribution` is a very efficient for implementing
+a Pitman-Yor process which samples from a notionally infinite discrete 
+distribution of the integers.
 """
 struct SkipListDistribution{Weight <: AbstractFloat, Index <: Integer}
     height::Int32
@@ -34,7 +52,8 @@ struct SkipListDistribution{Weight <: AbstractFloat, Index <: Integer}
     skipProbability::Float64
 end
 
-function SkipListDistribution{Weight, Index}(height; alpha=0.0, discount=0.0, skipProbability=0.25) where {Weight <: AbstractFloat, Index <: Integer} 
+function SkipListDistribution{Weight, Index}(height; alpha=0.0, discount=0.0, skipProbability=0.25) 
+    where {Weight <: AbstractFloat, Index <: Integer} 
     init(
         SkipListDistribution{Weight, Index}(height, Vector{Weight}(), Vector{Index}(), 
                                             alpha, discount, skipProbability))
@@ -46,7 +65,7 @@ function SkipListDistribution(height = 10; alpha=0.0, discount=0.0, skipProbabil
                                              alpha, discount, skipProbability))
 end
 
-init(self::SkipListDistribution{Weight, Index}) where {Weight, Index}= begin
+function init(self::SkipListDistribution{Weight, Index}) where {Weight, Index} 
     for i in 1:self.height
         push!(self.weight, Vector{Weight}())
         push!(self.child, Vector{Index}())
@@ -96,7 +115,8 @@ end
 
 total(dist::SkipListDistribution{Weight, Index}) where {Weight <: AbstractFloat, Index <: Integer} = sum(dist.weight[1])
 
-function getindexvector(dist::SkipListDistribution{Weight, Index}, p::Float64) where {Weight <: AbstractFloat, Index <: Integer}
+function getindexvector(dist::SkipListDistribution{Weight, Index}, p::Float64) 
+    where {Weight <: AbstractFloat, Index <: Integer}
     0 ≤ p ≤ 1 || error("Sample probability must be in [0, 1] but was $p")
     p = p * total(dist)
     r = zeros(Index, dist.height)
@@ -113,10 +133,13 @@ function getindexvector(dist::SkipListDistribution{Weight, Index}, p::Float64) w
     return r
 end
 
-getindex(dist::SkipListDistribution{Weight, Index}, p::Float64) where {Weight <: AbstractFloat, Index <: Integer} =
+function getindex(dist::SkipListDistribution{Weight, Index}, p::Float64) 
+    where {Weight <: AbstractFloat, Index <: Integer} 
     getindexvector(dist, p)[end]
+end
 
-function inc!(dist::SkipListDistribution{Weight, Index}, p::Float64, Δw::Weight) where {Weight <: AbstractFloat, Index <: Integer}
+function inc!(dist::SkipListDistribution{Weight, Index}, p::Float64, Δw::Weight) 
+    where {Weight <: AbstractFloat, Index <: Integer}
     index = getindexvector(dist, p)
     for (level,i) in enumerate(index)
         dist.weight[level][i] += Δw
@@ -125,7 +148,8 @@ function inc!(dist::SkipListDistribution{Weight, Index}, p::Float64, Δw::Weight
 end
 
 import Base.push!
-function Base.push!(dist::SkipListDistribution{Weight, Index}, w::Weight) where {Weight <: AbstractFloat, Index <: Integer}
+function Base.push!(dist::SkipListDistribution{Weight, Index}, w::Weight) 
+    where {Weight <: AbstractFloat, Index <: Integer}
     if length(dist) == 0
         for level in 1:dist.height
             push!(dist.child[level], 1)
